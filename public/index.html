@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uniform Order Desk</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">⁘</span>
+      <div>
+        <div class="brand-name">Order Desk</div>
+        <div class="brand-sub">Uniform Manufacturing</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" data-tab="orders">Orders</button>
+      <button class="nav-item" data-tab="inventory">Inventory</button>
+      <button class="nav-item" data-tab="billing">Billing</button>
+      <button class="nav-item" data-tab="setup">WhatsApp Setup</button>
+    </nav>
+    <div class="stats" id="stats"></div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ORDERS TAB -->
+    <section class="tab-panel active" id="tab-orders">
+      <div class="panel-head">
+        <div>
+          <h1>Orders</h1>
+          <p class="subtle">Every order that comes in from WhatsApp lands here, tagged by size and quantity.</p>
+        </div>
+        <button class="btn-primary" id="btn-add-manual">+ Add order manually</button>
+      </div>
+
+      <div class="filter-row">
+        <button class="chip active" data-status="all">All</button>
+        <button class="chip" data-status="pending">Pending</button>
+        <button class="chip" data-status="confirmed">Confirmed</button>
+        <button class="chip" data-status="in_production">In production</button>
+        <button class="chip" data-status="ready">Ready</button>
+        <button class="chip" data-status="delivered">Delivered</button>
+      </div>
+
+      <div id="orders-list" class="orders-list"></div>
+    </section>
+
+    <!-- INVENTORY TAB -->
+    <section class="tab-panel" id="tab-inventory">
+      <div class="panel-head">
+        <div>
+          <h1>Inventory</h1>
+          <p class="subtle">Stock on hand, by garment and size.</p>
+        </div>
+        <button class="btn-primary" id="btn-add-inventory">+ Add stock line</button>
+      </div>
+      <table class="data-table" id="inventory-table">
+        <thead>
+          <tr><th>Item</th><th>Size</th><th>Fabric</th><th>Stock</th><th>Reorder at</th><th>Unit cost</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- BILLING TAB -->
+    <section class="tab-panel" id="tab-billing">
+      <div class="panel-head">
+        <div>
+          <h1>Billing</h1>
+          <p class="subtle">Invoices generated from confirmed orders.</p>
+        </div>
+      </div>
+      <table class="data-table" id="invoices-table">
+        <thead>
+          <tr><th>Invoice #</th><th>Customer</th><th>School</th><th>Total</th><th>Paid</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- SETUP TAB -->
+    <section class="tab-panel" id="tab-setup">
+      <div class="panel-head">
+        <div>
+          <h1>WhatsApp Setup</h1>
+          <p class="subtle">Connect your WhatsApp Business number so orders arrive here automatically.</p>
+        </div>
+      </div>
+      <div class="setup-card">
+        <ol>
+          <li>Create a Meta Business account and a WhatsApp Business App at <code>developers.facebook.com</code>.</li>
+          <li>Get a permanent access token and your Phone Number ID from the WhatsApp &gt; API Setup page.</li>
+          <li>Put them in this server's <code>.env</code> file as <code>WHATSAPP_TOKEN</code> and <code>WHATSAPP_PHONE_NUMBER_ID</code>.</li>
+          <li>Set the webhook URL in Meta to <code>https://YOUR-DOMAIN/webhook</code>, with verify token matching <code>WHATSAPP_VERIFY_TOKEN</code> in <code>.env</code>.</li>
+          <li>Ask customers to message your new WhatsApp Business number. Every message becomes an order here.</li>
+        </ol>
+        <p class="subtle">Full step-by-step is in the README that came with this project.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Manual order modal -->
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal">
+    <h2>Add order</h2>
+    <label>Customer phone (optional)</label>
+    <input id="m-phone" placeholder="e.g. 9198xxxxxxx">
+    <label>Customer name (optional)</label>
+    <input id="m-name" placeholder="e.g. Rahul Sharma">
+    <label>Paste the WhatsApp order message</label>
+    <textarea id="m-text" rows="6" placeholder="e.g.&#10;St. Xavier School&#10;Shirt 32 x 3&#10;Pinafore 34 x 2&#10;Need by 15/07"></textarea>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn-primary" id="m-save">Save order</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="inv-modal-backdrop">
+  <div class="modal">
+    <h2>Add / update stock</h2>
+    <label>Item type</label>
+    <input id="i-type" placeholder="e.g. Shirt">
+    <label>Size</label>
+    <input id="i-size" placeholder="e.g. 32">
+    <label>Fabric</label>
+    <input id="i-fabric" placeholder="e.g. Cotton twill">
+    <label>Stock quantity</label>
+    <input id="i-qty" type="number" value="0">
+    <label>Reorder level</label>
+    <input id="i-reorder" type="number" value="10">
+    <label>Unit cost</label>
+    <input id="i-cost" type="number" value="0">
+    <div class="modal-actions">
+      <button class="btn-ghost" id="i-cancel">Cancel</button>
+      <button class="btn-primary" id="i-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
