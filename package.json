@@ -1,0 +1,19 @@
+{
+  "name": "uniform-order-system",
+  "version": "1.0.0",
+  "description": "WhatsApp order intake + order/inventory/billing management for a uniform manufacturing business",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "express": "^4.21.0",
+    "dotenv": "^16.4.5",
+    "axios": "^1.7.7",
+    "pdfkit": "^0.15.0",
+    "body-parser": "^1.20.3"
+  },
+  "license": "ISC"
+}
