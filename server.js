@@ -37,6 +37,8 @@ app.get('/webhook', (req, res) => {
 
 // Meta POSTs every incoming WhatsApp message here.
 app.post('/webhook', async (req, res) => {
+  console.log('--- Incoming webhook POST ---');
+  console.log(JSON.stringify(req.body, null, 2));
   try {
     const entry = req.body.entry?.[0];
     const change = entry?.changes?.[0];
@@ -44,16 +46,18 @@ app.post('/webhook', async (req, res) => {
     const message = value?.messages?.[0];
 
     if (!message) {
-      // Could be a status update (delivered/read) rather than a new message - ignore.
+      console.log('No message in payload (likely a status update) - ignoring.');
       return res.sendStatus(200);
     }
 
     const fromPhone = message.from; // customer's WhatsApp number
     const contactName = value.contacts?.[0]?.profile?.name || null;
     const text = message.text?.body || '';
+    console.log(`Message from ${fromPhone} (${contactName}): "${text}"`);
 
     if (text) {
-      saveIncomingOrder(text, fromPhone, contactName);
+      const orderId = saveIncomingOrder(text, fromPhone, contactName);
+      console.log(`Saved as order #${orderId}`);
       // Auto-reply confirming receipt (optional but recommended so customer knows it went through)
       await sendWhatsAppReply(fromPhone,
         `Thanks! We've received your order and will confirm shortly. ✅`);
