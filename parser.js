@@ -17,9 +17,11 @@ const ITEM_KEYWORDS = [
   'track suit', 'socks', 'belt', 'cap', 'kurta', 'salwar', 'apron'
 ];
 
-// e.g. "32", "8-9", "8-9yr", "M", "XL", "34\""
+// Matches "32*3", "32x3", "32 X 3", "M x 2" etc - size and quantity together
+const SIZE_QTY_COMBINED_REGEX = /\b(\d{1,2}\s*-\s*\d{1,2}\s*(?:yr|yrs|years)?|\d{2}\"?|XXL|XL|L|M|S)\s*[x×*]\s*(\d{1,3})\b/i;
+// e.g. "32", "8-9", "8-9yr", "M", "XL", "34\"" (used only when no combined pattern found)
 const SIZE_REGEX = /\b(\d{1,2}\s*-\s*\d{1,2}\s*(?:yr|yrs|years)?|\d{2}\"?|XXL|XL|L|M|S)\b/i;
-const QTY_REGEX = /\b(\d{1,3})\s*(?:pcs|pc|x|nos|no)?\b/i;
+const QTY_REGEX = /(?:^|\s)(\d{1,3})\s*(?:pcs|pc|nos|no)\b/i;
 const DATE_REGEX = /\b(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)\b/;
 const PHONE_NAME_HINT = /(?:name|customer|for)\s*[:\-]\s*([A-Za-z ]{2,40})/i;
 const SCHOOL_HINT = /([A-Za-z.&' ]{3,50}\bSchool\b[A-Za-z.&' ]{0,20})/i;
@@ -57,13 +59,23 @@ function parseOrderMessage(rawMessage, customerPhone) {
       continue;
     }
 
-    const sizeMatch = line.match(SIZE_REGEX);
-    const qtyMatch = line.match(QTY_REGEX);
+    const combinedMatch = line.match(SIZE_QTY_COMBINED_REGEX);
+    let size, quantity;
+
+    if (combinedMatch) {
+      size = combinedMatch[1].toUpperCase();
+      quantity = parseInt(combinedMatch[2], 10);
+    } else {
+      const sizeMatch = line.match(SIZE_REGEX);
+      const qtyMatch = line.match(QTY_REGEX);
+      size = sizeMatch ? sizeMatch[1].toUpperCase() : null;
+      quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
+    }
 
     const item = {
       item_type: capitalize(foundItem),
-      size: sizeMatch ? sizeMatch[1].toUpperCase() : null,
-      quantity: qtyMatch ? parseInt(qtyMatch[1], 10) : 1
+      size: size,
+      quantity: quantity
     };
 
     if (!item.size) needsReview = true; // size missing -> needs human check
