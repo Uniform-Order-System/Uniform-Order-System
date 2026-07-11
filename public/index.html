@@ -21,6 +21,7 @@
       <button class="nav-item active" data-tab="orders">Orders</button>
       <button class="nav-item" data-tab="inventory">Inventory</button>
       <button class="nav-item" data-tab="billing">Billing</button>
+      <button class="nav-item" data-tab="reports">Reports</button>
       <button class="nav-item" data-tab="setup">WhatsApp Setup</button>
     </nav>
     <div class="stats" id="stats"></div>
@@ -81,6 +82,53 @@
         </thead>
         <tbody></tbody>
       </table>
+    </section>
+
+    <!-- REPORTS TAB -->
+    <section class="tab-panel" id="tab-reports">
+      <div class="panel-head">
+        <div>
+          <h1>Reports</h1>
+          <p class="subtle">Order and revenue summaries for any date range.</p>
+        </div>
+        <button class="btn-primary" id="btn-download-csv">Download CSV</button>
+      </div>
+
+      <div class="filter-row">
+        <button class="chip active" data-range="this_month">This month</button>
+        <button class="chip" data-range="last_month">Last month</button>
+        <button class="chip" data-range="this_year">This year</button>
+        <button class="chip" data-range="last_year">Last year</button>
+      </div>
+      <div class="date-row">
+        <label>From <input type="date" id="r-from"></label>
+        <label>To <input type="date" id="r-to"></label>
+        <button class="btn-ghost" id="btn-apply-range">Apply</button>
+      </div>
+
+      <div class="report-cards" id="report-cards"></div>
+
+      <div class="report-columns">
+        <div>
+          <h3>Garments ordered</h3>
+          <table class="data-table" id="report-items-table">
+            <thead><tr><th>Item</th><th>Total qty</th><th>Orders</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div>
+          <h3>Orders by status</h3>
+          <table class="data-table" id="report-status-table">
+            <thead><tr><th>Status</th><th>Count</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <h3 style="margin-top:24px;">Top schools</h3>
+          <table class="data-table" id="report-school-table">
+            <thead><tr><th>School</th><th>Orders</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <!-- SETUP TAB -->

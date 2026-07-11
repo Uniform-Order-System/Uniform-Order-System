@@ -203,6 +203,80 @@ async function markPaid(id, total) {
   loadInvoices(); loadStats();
 }
 
+// ---------- Reports ----------
+function fmtDate(d) { return d.toISOString().slice(0, 10); }
+
+function getRange(key) {
+  const now = new Date();
+  let from, to;
+  if (key === 'this_month') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+    to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  } else if (key === 'last_month') {
+    from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    to = new Date(now.getFullYear(), now.getMonth(), 0);
+  } else if (key === 'this_year') {
+    from = new Date(now.getFullYear(), 0, 1);
+    to = new Date(now.getFullYear(), 11, 31);
+  } else if (key === 'last_year') {
+    from = new Date(now.getFullYear() - 1, 0, 1);
+    to = new Date(now.getFullYear() - 1, 11, 31);
+  }
+  return { from: fmtDate(from), to: fmtDate(to) };
+}
+
+document.querySelectorAll('#tab-reports .chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#tab-reports .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    const { from, to } = getRange(chip.dataset.range);
+    document.getElementById('r-from').value = from;
+    document.getElementById('r-to').value = to;
+    loadReport(from, to);
+  });
+});
+
+document.getElementById('btn-apply-range').addEventListener('click', () => {
+  document.querySelectorAll('#tab-reports .chip').forEach(c => c.classList.remove('active'));
+  const from = document.getElementById('r-from').value;
+  const to = document.getElementById('r-to').value;
+  if (!from || !to) return alert('Pick both dates.');
+  loadReport(from, to);
+});
+
+document.getElementById('btn-download-csv').addEventListener('click', () => {
+  const from = document.getElementById('r-from').value;
+  const to = document.getElementById('r-to').value;
+  if (!from || !to) return alert('Pick a date range first.');
+  window.open(`/api/reports/csv?from=${from}&to=${to}`, '_blank');
+});
+
+async function loadReport(from, to) {
+  const r = await fetch(`/api/reports?from=${from}&to=${to}`).then(res => res.json());
+
+  document.getElementById('report-cards').innerHTML = `
+    <div class="report-card"><div class="label">Total orders</div><div class="value">${r.orderCount}</div></div>
+    <div class="report-card"><div class="label">Total billed (₹)</div><div class="value">${r.revenue.totalBilled.toFixed(0)}</div></div>
+    <div class="report-card"><div class="label">Total collected (₹)</div><div class="value">${r.revenue.totalPaid.toFixed(0)}</div></div>
+    <div class="report-card"><div class="label">Outstanding (₹)</div><div class="value">${(r.revenue.totalBilled - r.revenue.totalPaid).toFixed(0)}</div></div>
+  `;
+
+  document.querySelector('#report-items-table tbody').innerHTML = r.itemBreakdown.map(i =>
+    `<tr><td>${i.item_type}</td><td>${i.total_qty}</td><td>${i.order_count}</td></tr>`
+  ).join('') || '<tr><td colspan="3" class="subtle">No items in this range.</td></tr>';
+
+  document.querySelector('#report-status-table tbody').innerHTML = r.statusBreakdown.map(s =>
+    `<tr><td>${s.status.replace('_',' ')}</td><td>${s.c}</td></tr>`
+  ).join('') || '<tr><td colspan="2" class="subtle">No orders in this range.</td></tr>';
+
+  document.querySelector('#report-school-table tbody').innerHTML = r.schoolBreakdown.map(s =>
+    `<tr><td>${s.school_name}</td><td>${s.c}</td></tr>`
+  ).join('') || '<tr><td colspan="2" class="subtle">No orders in this range.</td></tr>';
+}
+
+// Default report view: this month
+(() => { const { from, to } = getRange('this_month'); document.getElementById('r-from').value = from; document.getElementById('r-to').value = to; loadReport(from, to); })();
+
 // ---------- Init ----------
 loadStats();
 loadOrders();
