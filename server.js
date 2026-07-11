@@ -315,6 +315,71 @@ app.get('/api/stats', (req, res) => {
   res.json({ totalOrders, pending, needsReview, lowStock, unpaidTotal });
 });
 
+// ---------------------------------------------------------------------------
+// REPORTS API
+// ---------------------------------------------------------------------------
+app.get('/api/reports', (req, res) => {
+  const { from, to } = req.query;
+  if (!from || !to) return res.status(400).json({ error: 'from and to dates required (YYYY-MM-DD)' });
+  const toInclusive = to + ' 23:59:59';
+
+  const orderCount = db.prepare(`
+    SELECT COUNT(*) c FROM orders WHERE created_at BETWEEN ? AND ?
+  `).get(from, toInclusive).c;
+
+  const statusBreakdown = db.prepare(`
+    SELECT status, COUNT(*) c FROM orders WHERE created_at BETWEEN ? AND ? GROUP BY status
+  `).all(from, toInclusive);
+
+  const itemBreakdown = db.prepare(`
+    SELECT oi.item_type, SUM(oi.quantity) total_qty, COUNT(DISTINCT oi.order_id) order_count
+    FROM order_items oi
+    JOIN orders o ON oi.order_id = o.id
+    WHERE o.created_at BETWEEN ? AND ?
+    GROUP BY oi.item_type
+    ORDER BY total_qty DESC
+  `).all(from, toInclusive);
+
+  const revenue = db.prepare(`
+    SELECT COALESCE(SUM(i.total),0) totalBilled, COALESCE(SUM(i.paid_amount),0) totalPaid
+    FROM invoices i JOIN orders o ON i.order_id = o.id
+    WHERE o.created_at BETWEEN ? AND ?
+  `).get(from, toInclusive);
+
+  const schoolBreakdown = db.prepare(`
+    SELECT COALESCE(school_name, 'Unspecified') school_name, COUNT(*) c
+    FROM orders WHERE created_at BETWEEN ? AND ?
+    GROUP BY school_name ORDER BY c DESC LIMIT 10
+  `).all(from, toInclusive);
+
+  res.json({ orderCount, statusBreakdown, itemBreakdown, revenue, schoolBreakdown });
+});
+
+app.get('/api/reports/csv', (req, res) => {
+  const { from, to } = req.query;
+  if (!from || !to) return res.status(400).send('from and to dates required');
+  const toInclusive = to + ' 23:59:59';
+
+  const rows = db.prepare(`
+    SELECT o.id, o.created_at, o.customer_name, o.customer_phone, o.school_name,
+           o.status, o.delivery_date, oi.item_type, oi.size, oi.quantity
+    FROM orders o
+    LEFT JOIN order_items oi ON oi.order_id = o.id
+    WHERE o.created_at BETWEEN ? AND ?
+    ORDER BY o.created_at
+  `).all(from, toInclusive);
+
+  const header = 'Order ID,Date,Customer,Phone,School,Status,Delivery Date,Item,Size,Quantity\n';
+  const csvBody = rows.map(r => [
+    r.id, r.created_at, r.customer_name || '', r.customer_phone || '', r.school_name || '',
+    r.status, r.delivery_date || '', r.item_type || '', r.size || '', r.quantity || ''
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename=orders_${from}_to_${to}.csv`);
+  res.send(header + csvBody);
+});
+
 app.listen(PORT, () => {
   console.log(`Uniform Order System running on http://localhost:${PORT}`);
 });
