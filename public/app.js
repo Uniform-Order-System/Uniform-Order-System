@@ -74,17 +74,21 @@ async function loadOrders() {
 }
 
 function orderCard(o) {
-  const itemsHtml = o.items.map(it =>
-    `<span class="item-tag">${it.item_type} · ${it.size || '?'} × ${it.quantity}</span>`
-  ).join('');
+  const itemsHtml = o.items.map(it => {
+    const parts = [it.item_type];
+    if (it.category) parts.push(it.category);
+    if (it.color) parts.push(it.color);
+    parts.push(it.size || '?');
+    return `<span class="item-tag">${parts.join(' · ')} × ${it.quantity}</span>`;
+  }).join('');
 
   return `
     <div class="order-card ${o.needs_review ? 'review' : ''}">
       <div class="order-top">
         <div>
-          <div class="order-id">ORDER #${o.id} · ${new Date(o.created_at).toLocaleString()}</div>
+          <div class="order-id">${o.order_number || 'ORDER #' + o.id} · ${o.order_date || new Date(o.created_at).toLocaleDateString()}</div>
           <div class="order-customer">${o.customer_name || 'Unnamed customer'} ${o.customer_phone ? '· ' + o.customer_phone : ''}</div>
-          ${o.school_name ? `<div class="order-school">${o.school_name}</div>` : ''}
+          ${o.school_name ? `<div class="order-school">${o.school_name}${o.spoc ? ' · SPOC: ' + o.spoc : ''}</div>` : ''}
         </div>
         <div class="order-meta">
           ${o.needs_review ? '<span class="badge review">Needs review</span>' : ''}
@@ -94,8 +98,10 @@ function orderCard(o) {
           </select>
         </div>
       </div>
-      <div class="order-items">${itemsHtml || '<span class="subtle">No items parsed — check raw message below</span>'}</div>
-      <div class="order-raw">${escapeHtml(o.raw_message || '')}</div>
+      <div class="order-items">${itemsHtml || '<span class="subtle">No items parsed — check raw message or photo below</span>'}</div>
+      ${o.has_image ? `<img class="order-photo" src="/api/orders/${o.id}/image" alt="Order photo" onclick="window.open(this.src)">` : ''}
+      ${o.raw_message ? `<div class="order-raw">${escapeHtml(o.raw_message)}</div>` : ''}
+      ${o.notes ? `<div class="order-remarks"><strong>Remarks:</strong> ${escapeHtml(o.notes)}</div>` : ''}
       <div class="order-actions">
         <button class="link-btn" data-make-invoice="${o.id}">Generate invoice</button>
         <button class="link-btn danger" data-delete-order="${o.id}">Delete</button>
@@ -108,25 +114,75 @@ function escapeHtml(str) {
   return str.replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]));
 }
 
-// ---------- Manual order modal ----------
+// ---------- Manual order modal (structured form) ----------
 const modal = document.getElementById('modal-backdrop');
-document.getElementById('btn-add-manual').addEventListener('click', () => modal.classList.add('open'));
+let itemRowCount = 0;
+
+function addItemRow(values = {}) {
+  itemRowCount++;
+  const id = itemRowCount;
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  div.dataset.rowId = id;
+  div.innerHTML = `
+    <div><label>Item Name</label><input class="i-item-name" value="${values.itemName || ''}" placeholder="e.g. Shirt"></div>
+    <div><label>Category</label><input class="i-category" value="${values.category || ''}" placeholder="e.g. Boys Wear"></div>
+    <div><label>Size</label><input class="i-size" value="${values.size || ''}" placeholder="e.g. 32"></div>
+    <div><label>Color</label><input class="i-color" value="${values.color || ''}" placeholder="e.g. White"></div>
+    <div><label>Qty</label><input class="i-qty" type="number" min="1" value="${values.quantity || 1}"></div>
+    <button type="button" class="remove-item" onclick="this.closest('.item-row').remove()">×</button>
+  `;
+  document.getElementById('m-items').appendChild(div);
+}
+
+function resetManualForm() {
+  document.getElementById('m-party-name').value = '';
+  document.getElementById('m-mobile').value = '';
+  document.getElementById('m-school').value = '';
+  document.getElementById('m-spoc').value = '';
+  document.getElementById('m-remarks').value = '';
+  document.getElementById('m-delivery-date').value = '';
+  document.getElementById('m-order-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('m-items').innerHTML = '';
+  addItemRow();
+}
+
+document.getElementById('btn-add-manual').addEventListener('click', () => {
+  resetManualForm();
+  modal.classList.add('open');
+});
+document.getElementById('m-add-item').addEventListener('click', () => addItemRow());
 document.getElementById('m-cancel').addEventListener('click', () => modal.classList.remove('open'));
+
 document.getElementById('m-save').addEventListener('click', async () => {
-  const rawText = document.getElementById('m-text').value.trim();
-  if (!rawText) return alert('Paste the order text first.');
+  const partyName = document.getElementById('m-party-name').value.trim();
+  if (!partyName) return alert('Party name is required.');
+
+  const items = [...document.querySelectorAll('#m-items .item-row')].map(row => ({
+    itemName: row.querySelector('.i-item-name').value.trim(),
+    category: row.querySelector('.i-category').value.trim(),
+    size: row.querySelector('.i-size').value.trim(),
+    color: row.querySelector('.i-color').value.trim(),
+    quantity: Number(row.querySelector('.i-qty').value) || 1
+  })).filter(it => it.itemName);
+
+  if (items.length === 0) return alert('Add at least one item with a name.');
+
   await fetch('/api/orders/manual', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      rawText,
-      phone: document.getElementById('m-phone').value.trim(),
-      contactName: document.getElementById('m-name').value.trim()
+      partyName,
+      mobileNumber: document.getElementById('m-mobile').value.trim(),
+      schoolName: document.getElementById('m-school').value.trim(),
+      spoc: document.getElementById('m-spoc').value.trim(),
+      orderDate: document.getElementById('m-order-date').value,
+      deliveryDate: document.getElementById('m-delivery-date').value,
+      remarks: document.getElementById('m-remarks').value.trim(),
+      items
     })
   });
-  document.getElementById('m-text').value = '';
-  document.getElementById('m-phone').value = '';
-  document.getElementById('m-name').value = '';
+
   modal.classList.remove('open');
   loadOrders(); loadStats();
 });

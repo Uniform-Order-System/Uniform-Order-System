@@ -156,14 +156,43 @@
 
 <!-- Manual order modal -->
 <div class="modal-backdrop" id="modal-backdrop">
-  <div class="modal">
+  <div class="modal modal-wide">
     <h2>Add order</h2>
-    <label>Customer phone (optional)</label>
-    <input id="m-phone" placeholder="e.g. 9198xxxxxxx">
-    <label>Customer name (optional)</label>
-    <input id="m-name" placeholder="e.g. Rahul Sharma">
-    <label>Paste the WhatsApp order message</label>
-    <textarea id="m-text" rows="6" placeholder="e.g.&#10;St. Xavier School&#10;Shirt 32 x 3&#10;Pinafore 34 x 2&#10;Need by 15/07"></textarea>
+
+    <div class="form-grid">
+      <div>
+        <label>Party Name *</label>
+        <input id="m-party-name" placeholder="e.g. Rahul Sharma">
+      </div>
+      <div>
+        <label>Order Date</label>
+        <input id="m-order-date" type="date">
+      </div>
+      <div>
+        <label>Mobile Number</label>
+        <input id="m-mobile" placeholder="e.g. 9198xxxxxxx">
+      </div>
+      <div>
+        <label>School Name</label>
+        <input id="m-school" placeholder="e.g. St. Xavier School">
+      </div>
+      <div>
+        <label>SPOC</label>
+        <input id="m-spoc" placeholder="e.g. Mrs. Verma (Admin office)">
+      </div>
+      <div>
+        <label>Delivery Date</label>
+        <input id="m-delivery-date" type="date">
+      </div>
+    </div>
+
+    <h3 class="section-label">Items</h3>
+    <div id="m-items"></div>
+    <button class="link-btn" id="m-add-item">+ Add another item</button>
+
+    <label>Extra Remarks</label>
+    <textarea id="m-remarks" rows="2" placeholder="Any additional notes"></textarea>
+
     <div class="modal-actions">
       <button class="btn-ghost" id="m-cancel">Cancel</button>
       <button class="btn-primary" id="m-save">Save order</button>
