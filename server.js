@@ -541,17 +541,17 @@ app.get('/api/products/categories', requireAuth, (req, res) => {
 });
 
 app.post('/api/products', requireAdmin, (req, res) => {
-  const { product_category, item_name, fabric_code, size, stitching_pattern, decoration, color, unit_price, remarks } = req.body;
+  const { product_category, item_name, fabric_code, size, stitching_pattern, decoration, unit_price, remarks } = req.body;
   if (!product_category || !item_name) return res.status(400).json({ error: 'Product category and item name are required' });
   const result = db.prepare(`
-    INSERT INTO products (product_category, item_name, fabric_code, size, stitching_pattern, decoration, color, unit_price, remarks)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(product_category, item_name, fabric_code || null, size || null, stitching_pattern || null, decoration || null, color || null, unit_price || 0, remarks || null);
+    INSERT INTO products (product_category, item_name, fabric_code, size, stitching_pattern, decoration, unit_price, remarks)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(product_category, item_name, fabric_code || null, size || null, stitching_pattern || null, decoration || null, unit_price || 0, remarks || null);
   res.json({ id: result.lastInsertRowid });
 });
 
 app.put('/api/products/:id', requireAdmin, (req, res) => {
-  const { product_category, item_name, fabric_code, size, stitching_pattern, decoration, color, unit_price, remarks } = req.body;
+  const { product_category, item_name, fabric_code, size, stitching_pattern, decoration, unit_price, remarks } = req.body;
   db.prepare(`
     UPDATE products SET
       product_category = COALESCE(?, product_category),
@@ -560,11 +560,10 @@ app.put('/api/products/:id', requireAdmin, (req, res) => {
       size = ?,
       stitching_pattern = ?,
       decoration = ?,
-      color = ?,
       unit_price = COALESCE(?, unit_price),
       remarks = ?
     WHERE id = ?
-  `).run(product_category, item_name, fabric_code || null, size || null, stitching_pattern || null, decoration || null, color || null, unit_price, remarks || null, req.params.id);
+  `).run(product_category, item_name, fabric_code || null, size || null, stitching_pattern || null, decoration || null, unit_price, remarks || null, req.params.id);
   res.json({ success: true });
 });
 
