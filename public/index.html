@@ -97,7 +97,7 @@
       <div class="panel-head">
         <div>
           <h1>Product Master</h1>
-          <p class="subtle">Your full product catalogue — categories, fabrics, sizes, patterns, and decoration.</p>
+          <p class="subtle">Your full product catalogue. Item Name is auto-generated from the fields you fill.</p>
         </div>
         <button class="btn-primary" id="btn-add-product">+ Add product</button>
       </div>
@@ -114,8 +114,8 @@
       <table class="data-table" id="products-table" style="margin-top:14px;">
         <thead>
           <tr>
+            <th>Item Name (Auto)</th>
             <th>Category</th>
-            <th>Item Name</th>
             <th>Fabric Code</th>
             <th>Size</th>
             <th>Stitching Pattern</th>
@@ -128,6 +128,20 @@
         </thead>
         <tbody></tbody>
       </table>
+
+      <div style="margin-top:36px;">
+        <div class="panel-head" style="margin-bottom:12px;">
+          <div>
+            <h2 style="font-size:16px;margin:0 0 4px;">Item Type Abbreviations</h2>
+            <p class="subtle">Used to auto-generate the Item Name code (e.g. Half Shirt → HS).</p>
+          </div>
+          <button class="btn-ghost" id="btn-add-abbrev">+ Add</button>
+        </div>
+        <table class="data-table" id="abbrev-table">
+          <thead><tr><th>Item Type</th><th>Abbreviation</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </section>
 
     <!-- REPORTS TAB -->
@@ -301,20 +315,22 @@
         <input id="p-category" placeholder="e.g. Boys Wear">
       </div>
       <div>
-        <label>Item Name *</label>
-        <input id="p-item-name" placeholder="e.g. Full Pant">
+        <label>Item Type *</label>
+        <select id="p-item-type" class="status-select" style="width:100%;padding:9px 10px;">
+          <option value="">— Select item type —</option>
+        </select>
       </div>
       <div>
         <label>Fabric Code</label>
-        <input id="p-fabric-code" placeholder="e.g. FC-001">
+        <input id="p-fabric-code" placeholder="e.g. 703">
       </div>
       <div>
         <label>Size</label>
-        <input id="p-size" placeholder="e.g. 32, M, 8-9yr">
+        <input id="p-size" placeholder="e.g. 32">
       </div>
       <div>
         <label>Stitching Pattern</label>
-        <input id="p-stitching" placeholder="e.g. Regular Fit, Slim Fit">
+        <input id="p-stitching" placeholder="e.g. Mixmatch">
       </div>
       <div>
         <label>Decoration</label>
@@ -334,6 +350,9 @@
         <input id="p-price" type="number" min="0" value="0">
       </div>
     </div>
+
+    <label>Auto-generated Item Name</label>
+    <div class="generated-name-box" id="p-generated-name">—</div>
 
     <label>Remarks</label>
     <textarea id="p-remarks" rows="2" placeholder="Any additional notes about this product"></textarea>
@@ -356,6 +375,22 @@
     <div id="picker-results" style="max-height:360px; overflow-y:auto;"></div>
     <div class="modal-actions">
       <button class="btn-ghost" id="picker-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Abbreviation modal -->
+<div class="modal-backdrop" id="abbrev-modal-backdrop">
+  <div class="modal">
+    <h2 id="abbrev-modal-title">Add item abbreviation</h2>
+    <input type="hidden" id="ab-id">
+    <label>Item Type</label>
+    <input id="ab-type" placeholder="e.g. Half Shirt">
+    <label>Abbreviation</label>
+    <input id="ab-abbr" placeholder="e.g. HS" style="text-transform:uppercase;">
+    <div class="modal-actions">
+      <button class="btn-ghost" id="ab-cancel">Cancel</button>
+      <button class="btn-primary" id="ab-save">Save</button>
     </div>
   </div>
 </div>
