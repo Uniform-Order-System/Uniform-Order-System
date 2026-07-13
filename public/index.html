@@ -102,10 +102,6 @@
         <button class="btn-primary" id="btn-add-product">+ Add product</button>
       </div>
 
-      <div class="filter-row" id="product-category-filters">
-        <button class="chip active" data-cat="">All</button>
-      </div>
-
       <div class="search-row">
         <input id="product-search" placeholder="Search by item name, fabric code or pattern..." style="flex:1; padding:8px 12px; border:1px solid var(--line); border-radius:6px; font-family:var(--sans); font-size:13px;">
         <button class="btn-ghost" id="btn-product-search">Search</button>
@@ -115,7 +111,6 @@
         <thead>
           <tr>
             <th>Item Name (Auto)</th>
-            <th>Category</th>
             <th>Fabric Code</th>
             <th>Size</th>
             <th>Stitching Pattern</th>
@@ -138,6 +133,20 @@
         </div>
         <table class="data-table" id="abbrev-table">
           <thead><tr><th>Item Type</th><th>Abbreviation</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:36px;">
+        <div class="panel-head" style="margin-bottom:12px;">
+          <div>
+            <h2 style="font-size:16px;margin:0 0 4px;">Stitching Patterns</h2>
+            <p class="subtle">These appear in the Stitching Pattern dropdown, and set the abbreviation used in the Item Name (e.g. Mixmatch → MM).</p>
+          </div>
+          <button class="btn-ghost" id="btn-add-pattern">+ Add</button>
+        </div>
+        <table class="data-table" id="pattern-table">
+          <thead><tr><th>Pattern Name</th><th>Abbreviation</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -310,10 +319,6 @@
 
     <div class="form-grid">
       <div>
-        <label>Product Category *</label>
-        <input id="p-category" placeholder="e.g. Boys Wear">
-      </div>
-      <div>
         <label>Item Type *</label>
         <select id="p-item-type" class="status-select" style="width:100%;padding:9px 10px;">
           <option value="">— Select item type —</option>
@@ -329,7 +334,9 @@
       </div>
       <div>
         <label>Stitching Pattern</label>
-        <input id="p-stitching" placeholder="e.g. Mixmatch">
+        <select id="p-stitching" class="status-select" style="width:100%;padding:9px 10px;">
+          <option value="">— Select pattern —</option>
+        </select>
       </div>
       <div>
         <label>Decoration</label>
@@ -370,6 +377,22 @@
     <div id="picker-results" style="max-height:360px; overflow-y:auto;"></div>
     <div class="modal-actions">
       <button class="btn-ghost" id="picker-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Stitching pattern modal -->
+<div class="modal-backdrop" id="pattern-modal-backdrop">
+  <div class="modal">
+    <h2 id="pattern-modal-title">Add stitching pattern</h2>
+    <input type="hidden" id="pt-id">
+    <label>Pattern Name</label>
+    <input id="pt-name" placeholder="e.g. Mixmatch">
+    <label>Abbreviation</label>
+    <input id="pt-abbr" placeholder="e.g. MM" style="text-transform:uppercase;">
+    <div class="modal-actions">
+      <button class="btn-ghost" id="pt-cancel">Cancel</button>
+      <button class="btn-primary" id="pt-save">Save</button>
     </div>
   </div>
 </div>
