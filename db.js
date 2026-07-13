@@ -86,6 +86,12 @@ CREATE TABLE IF NOT EXISTS products (
   active INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS item_abbreviations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_type TEXT UNIQUE NOT NULL,   -- e.g. "Half Shirt"
+  abbreviation TEXT NOT NULL        -- e.g. "HS"
+);
 `);
 
 // Migration: add columns if this database was created before they existed
@@ -99,5 +105,20 @@ migrateColumn('orders', 'order_date', 'TEXT');
 migrateColumn('orders', 'spoc', 'TEXT');
 migrateColumn('order_items', 'category', 'TEXT');
 migrateColumn('order_items', 'color', 'TEXT');
+
+// Seed default item abbreviations if table is empty
+const abbrevCount = db.prepare('SELECT COUNT(*) c FROM item_abbreviations').get().c;
+if (abbrevCount === 0) {
+  const defaults = [
+    ['Half Shirt', 'HS'], ['Full Shirt', 'FS'], ['Half Pant', 'HP'],
+    ['Full Pant', 'FP'], ['Pinafore', 'PIN'], ['Skirt', 'SK'],
+    ['Tie', 'TI'], ['Blazer', 'BL'], ['Tunic', 'TU'], ['Frock', 'FR'],
+    ['Sweater', 'SW'], ['Pullover', 'PO'], ['Track Suit', 'TS'],
+    ['Shorts', 'SH'], ['Socks', 'SO'], ['Belt', 'BE'], ['Cap', 'CA'],
+    ['Kurta', 'KU'], ['Salwar', 'SL'], ['Apron', 'AP']
+  ];
+  const ins = db.prepare('INSERT OR IGNORE INTO item_abbreviations (item_type, abbreviation) VALUES (?, ?)');
+  for (const [type, abbr] of defaults) ins.run(type, abbr);
+}
 
 module.exports = db;
