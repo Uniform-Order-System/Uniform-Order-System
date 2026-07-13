@@ -364,6 +364,7 @@ const pickerModal = document.getElementById('product-picker-backdrop');
 const abbrevModal = document.getElementById('abbrev-modal-backdrop');
 let productCategoryFilter = '';
 let abbreviationsCache = [];
+let patternsCache = [];
 
 // ---- Abbreviation helpers ----
 function autoAbbreviate(text) {
@@ -377,11 +378,12 @@ function generateItemName() {
   const itemType = document.getElementById('p-item-type').value;
   const fabricCode = document.getElementById('p-fabric-code').value.trim();
   const size = document.getElementById('p-size').value.trim();
-  const stitching = document.getElementById('p-stitching').value.trim();
+  const stitching = document.getElementById('p-stitching').value;
   const decoration = document.getElementById('p-decoration').value;
   const abbrevEntry = abbreviationsCache.find(a => a.item_type === itemType);
   const itemAbbr = abbrevEntry ? abbrevEntry.abbreviation : (itemType ? autoAbbreviate(itemType) : '');
-  const stitchAbbr = stitching ? autoAbbreviate(stitching) : '';
+  const patternEntry = patternsCache.find(p => p.pattern_name === stitching);
+  const stitchAbbr = patternEntry ? patternEntry.abbreviation : (stitching ? autoAbbreviate(stitching) : '');
   const decoAbbr = DECORATION_MAP[decoration] || decoration;
   const parts = [itemAbbr, fabricCode, stitchAbbr, decoAbbr, size].filter(Boolean);
   const generated = parts.join('-');
@@ -453,9 +455,67 @@ async function deleteAbbrev(id) {
   await loadAbbreviations();
 }
 
+async function loadPatterns() {
+  patternsCache = await fetch('/api/patterns').then(r => r.json()).catch(() => []);
+  const sel = document.getElementById('p-stitching');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">\u2014 Select pattern \u2014</option>' +
+    patternsCache.map(p => `<option value="${p.pattern_name}" ${p.pattern_name === current ? 'selected' : ''}>${p.pattern_name} (${p.abbreviation})</option>`).join('');
+  const tbody = document.querySelector('#pattern-table tbody');
+  if (tbody) {
+    tbody.innerHTML = patternsCache.map(p => `
+      <tr>
+        <td>${p.pattern_name}</td>
+        <td><strong style="font-family:var(--mono)">${p.abbreviation}</strong></td>
+        <td>
+          <button class="link-btn" onclick="editPattern(${p.id}, '${p.pattern_name.replace(/'/g,"\\'")}', '${p.abbreviation}')">Edit</button>
+          <button class="link-btn danger" onclick="deletePattern(${p.id})">Delete</button>
+        </td>
+      </tr>
+    `).join('') || '<tr><td colspan="3" class="subtle">No patterns yet.</td></tr>';
+  }
+}
+
+const patternModal = document.getElementById('pattern-modal-backdrop');
+document.getElementById('btn-add-pattern').addEventListener('click', () => {
+  document.getElementById('pt-id').value = '';
+  document.getElementById('pt-name').value = '';
+  document.getElementById('pt-abbr').value = '';
+  document.getElementById('pattern-modal-title').textContent = 'Add stitching pattern';
+  patternModal.classList.add('open');
+});
+document.getElementById('pt-cancel').addEventListener('click', () => patternModal.classList.remove('open'));
+document.getElementById('pt-save').addEventListener('click', async () => {
+  const id = document.getElementById('pt-id').value;
+  const pattern_name = document.getElementById('pt-name').value.trim();
+  const abbreviation = document.getElementById('pt-abbr').value.trim().toUpperCase();
+  if (!pattern_name || !abbreviation) return alert('Both fields are required.');
+  const url = id ? `/api/patterns/${id}` : '/api/patterns';
+  const method = id ? 'PUT' : 'POST';
+  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pattern_name, abbreviation }) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return alert(data.error || 'Could not save.');
+  patternModal.classList.remove('open');
+  await loadPatterns();
+  generateItemName();
+});
+
+function editPattern(id, name, abbr) {
+  document.getElementById('pt-id').value = id;
+  document.getElementById('pt-name').value = name;
+  document.getElementById('pt-abbr').value = abbr;
+  document.getElementById('pattern-modal-title').textContent = 'Edit stitching pattern';
+  patternModal.classList.add('open');
+}
+
+async function deletePattern(id) {
+  if (!confirm('Remove this pattern?')) return;
+  await fetch(`/api/patterns/${id}`, { method: 'DELETE' });
+  await loadPatterns();
+}
+
 function resetProductForm() {
   document.getElementById('p-id').value = '';
-  document.getElementById('p-category').value = '';
   document.getElementById('p-item-type').value = '';
   document.getElementById('p-fabric-code').value = '';
   document.getElementById('p-size').value = '';
@@ -478,7 +538,7 @@ document.getElementById('p-save').addEventListener('click', async () => {
   const itemName = generateItemName();
   if (!itemName || itemName === '\u2014') return alert('Please select an item type and fill in fabric code to generate a name.');
   const body = {
-    product_category: document.getElementById('p-category').value.trim(),
+    product_category: 'General',
     item_name: itemName,
     fabric_code: document.getElementById('p-fabric-code').value.trim(),
     size: document.getElementById('p-size').value.trim(),
@@ -487,7 +547,6 @@ document.getElementById('p-save').addEventListener('click', async () => {
     unit_price: Number(document.getElementById('p-price').value) || 0,
     remarks: document.getElementById('p-remarks').value.trim()
   };
-  if (!body.product_category) return alert('Product category is required.');
   const url = id ? `/api/products/${id}` : '/api/products';
   const method = id ? 'PUT' : 'POST';
   const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -498,32 +557,17 @@ document.getElementById('p-save').addEventListener('click', async () => {
   loadProductCategories();
 });
 
-async function loadProductCategories() {
-  const cats = await fetch('/api/products/categories').then(r => r.json()).catch(() => []);
-  const container = document.getElementById('product-category-filters');
-  container.innerHTML = `<button class="chip ${!productCategoryFilter ? 'active' : ''}" data-cat="">All</button>` +
-    cats.map(c => `<button class="chip ${productCategoryFilter === c ? 'active' : ''}" data-cat="${c}">${c}</button>`).join('');
-  container.querySelectorAll('.chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      container.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      productCategoryFilter = chip.dataset.cat;
-      loadProducts();
-    });
-  });
-}
+async function loadProductCategories() { /* category column removed - no-op */ }
 
 async function loadProducts() {
   const search = document.getElementById('product-search').value.trim();
   const params = new URLSearchParams();
-  if (productCategoryFilter) params.set('category', productCategoryFilter);
   if (search) params.set('search', search);
   const products = await fetch('/api/products?' + params).then(r => r.json()).catch(() => []);
   const tbody = document.querySelector('#products-table tbody');
   tbody.innerHTML = products.map(p => `
     <tr>
       <td><strong style="font-family:var(--mono);color:var(--navy)">${p.item_name}</strong></td>
-      <td>${p.product_category}</td>
       <td>${p.fabric_code || '-'}</td>
       <td>${p.size || '-'}</td>
       <td>${p.stitching_pattern || '-'}</td>
@@ -535,7 +579,7 @@ async function loadProducts() {
         <button class="link-btn danger" onclick="deleteProduct(${p.id})">Delete</button>
       </td>
     </tr>
-  `).join('') || '<tr><td colspan="9" class="subtle">No products yet. Add your first product above.</td></tr>';
+  `).join('') || '<tr><td colspan="8" class="subtle">No products yet. Add your first product above.</td></tr>';
 }
 
 async function editProduct(id) {
@@ -543,7 +587,6 @@ async function editProduct(id) {
   const p = products.find(x => x.id === id);
   if (!p) return;
   document.getElementById('p-id').value = p.id;
-  document.getElementById('p-category').value = p.product_category;
   const matchedAbbrev = abbreviationsCache.find(a => p.item_name.startsWith(a.abbreviation + '-'));
   document.getElementById('p-item-type').value = matchedAbbrev ? matchedAbbrev.item_type : '';
   document.getElementById('p-fabric-code').value = p.fabric_code || '';
@@ -589,7 +632,7 @@ async function loadPickerResults(search) {
   container.innerHTML = products.map(p => `
     <div class="picker-row" onclick="pickProduct(${p.id})">
       <div class="picker-name" style="font-family:var(--mono);color:var(--navy)">${p.item_name}</div>
-      <div class="picker-meta">${p.product_category} \u00b7 ${p.size ? 'Size: ' + p.size + ' \u00b7 ' : ''}${p.unit_price ? '\u20b9' + p.unit_price : ''}</div>
+      <div class="picker-meta">${p.size ? 'Size: ' + p.size + ' \u00b7 ' : ''}${p.unit_price ? '\u20b9' + p.unit_price : ''}</div>
     </div>
   `).join('');
 }
@@ -598,7 +641,7 @@ async function pickProduct(id) {
   const products = await fetch('/api/products').then(r => r.json());
   const p = products.find(x => x.id === id);
   if (!p) return;
-  addItemRow({ itemName: p.item_name, category: p.product_category, size: p.size || '', color: '', quantity: 1, unit_price: p.unit_price || 0 });
+  addItemRow({ itemName: p.item_name, category: '', size: p.size || '', color: '', quantity: 1, unit_price: p.unit_price || 0 });
   pickerModal.classList.remove('open');
 }
 
@@ -677,6 +720,7 @@ loadInventory();
 loadInvoices();
 loadUsers();
 loadAbbreviations();
+loadPatterns();
 loadProducts();
 loadProductCategories();
 setInterval(() => { loadOrders(); loadStats(); }, 15000); // poll for new WhatsApp orders
