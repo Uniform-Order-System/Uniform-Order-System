@@ -148,6 +148,13 @@ h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.2px; }
 .data-table td { padding: 10px 14px; font-size: 13px; border-top: 1px solid var(--line); }
 .low-stock { color: var(--danger); font-weight: 600; }
 
+/* ---------- Product Master ---------- */
+.search-row { display: flex; gap: 8px; align-items: center; }
+.picker-row { padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.picker-row:hover { background: var(--chalk); }
+.picker-row .picker-name { font-weight: 600; font-size: 13px; }
+.picker-row .picker-meta { font-size: 11px; color: var(--thread-gray); margin-top: 2px; font-family: var(--mono); }
+
 /* ---------- Reports ---------- */
 .date-row { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 22px; }
 .date-row label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--thread-gray); }
