@@ -23,6 +23,7 @@
       <button class="nav-item active" data-tab="orders">Orders</button>
       <button class="nav-item" data-tab="inventory">Inventory</button>
       <button class="nav-item" data-tab="billing">Billing</button>
+      <button class="nav-item" data-tab="products">Product Master</button>
       <button class="nav-item" data-tab="reports">Reports</button>
       <button class="nav-item" data-tab="setup">WhatsApp Setup</button>
       <button class="nav-item" data-tab="users" id="nav-users">Users</button>
@@ -86,6 +87,44 @@
       <table class="data-table" id="invoices-table">
         <thead>
           <tr><th>Invoice #</th><th>Customer</th><th>School</th><th>Total</th><th>Paid</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- PRODUCT MASTER TAB -->
+    <section class="tab-panel" id="tab-products">
+      <div class="panel-head">
+        <div>
+          <h1>Product Master</h1>
+          <p class="subtle">Your full product catalogue — categories, fabrics, sizes, patterns, and decoration.</p>
+        </div>
+        <button class="btn-primary" id="btn-add-product">+ Add product</button>
+      </div>
+
+      <div class="filter-row" id="product-category-filters">
+        <button class="chip active" data-cat="">All</button>
+      </div>
+
+      <div class="search-row">
+        <input id="product-search" placeholder="Search by item name, fabric code or pattern..." style="flex:1; padding:8px 12px; border:1px solid var(--line); border-radius:6px; font-family:var(--sans); font-size:13px;">
+        <button class="btn-ghost" id="btn-product-search">Search</button>
+      </div>
+
+      <table class="data-table" id="products-table" style="margin-top:14px;">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Item Name</th>
+            <th>Fabric Code</th>
+            <th>Size</th>
+            <th>Stitching Pattern</th>
+            <th>Decoration</th>
+            <th>Color</th>
+            <th>Unit Price</th>
+            <th>Remarks</th>
+            <th></th>
+          </tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -214,7 +253,10 @@
 
     <h3 class="section-label">Items</h3>
     <div id="m-items"></div>
-    <button class="link-btn" id="m-add-item">+ Add another item</button>
+    <div style="display:flex; gap:10px; margin-top:4px;">
+      <button class="link-btn" id="m-add-item">+ Add item manually</button>
+      <button class="link-btn" id="m-pick-product">+ Pick from Product Master</button>
+    </div>
 
     <label>Extra Remarks</label>
     <textarea id="m-remarks" rows="2" placeholder="Any additional notes"></textarea>
@@ -244,6 +286,76 @@
     <div class="modal-actions">
       <button class="btn-ghost" id="i-cancel">Cancel</button>
       <button class="btn-primary" id="i-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="product-modal-backdrop">
+  <div class="modal modal-wide">
+    <h2 id="product-modal-title">Add product</h2>
+    <input type="hidden" id="p-id">
+
+    <div class="form-grid">
+      <div>
+        <label>Product Category *</label>
+        <input id="p-category" placeholder="e.g. Boys Wear">
+      </div>
+      <div>
+        <label>Item Name *</label>
+        <input id="p-item-name" placeholder="e.g. Full Pant">
+      </div>
+      <div>
+        <label>Fabric Code</label>
+        <input id="p-fabric-code" placeholder="e.g. FC-001">
+      </div>
+      <div>
+        <label>Size</label>
+        <input id="p-size" placeholder="e.g. 32, M, 8-9yr">
+      </div>
+      <div>
+        <label>Stitching Pattern</label>
+        <input id="p-stitching" placeholder="e.g. Regular Fit, Slim Fit">
+      </div>
+      <div>
+        <label>Decoration</label>
+        <select id="p-decoration" class="status-select" style="width:100%;padding:9px 10px;">
+          <option value="NA">NA</option>
+          <option value="Print">Print</option>
+          <option value="Embroidery">Embroidery</option>
+          <option value="Batch">Batch</option>
+        </select>
+      </div>
+      <div>
+        <label>Color</label>
+        <input id="p-color" placeholder="e.g. White, Navy Blue">
+      </div>
+      <div>
+        <label>Unit Price (₹)</label>
+        <input id="p-price" type="number" min="0" value="0">
+      </div>
+    </div>
+
+    <label>Remarks</label>
+    <textarea id="p-remarks" rows="2" placeholder="Any additional notes about this product"></textarea>
+
+    <div class="modal-actions">
+      <button class="btn-ghost" id="p-cancel">Cancel</button>
+      <button class="btn-primary" id="p-save">Save product</button>
+    </div>
+  </div>
+</div>
+
+<!-- Product picker modal (used in order form) -->
+<div class="modal-backdrop" id="product-picker-backdrop">
+  <div class="modal modal-wide">
+    <h2>Select from Product Master</h2>
+    <div class="search-row" style="margin-bottom:12px;">
+      <input id="picker-search" placeholder="Search product..." style="flex:1; padding:8px 12px; border:1px solid var(--line); border-radius:6px; font-family:var(--sans); font-size:13px;">
+      <button class="btn-ghost" id="btn-picker-search">Search</button>
+    </div>
+    <div id="picker-results" style="max-height:360px; overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="picker-cancel">Cancel</button>
     </div>
   </div>
 </div>
