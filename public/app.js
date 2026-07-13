@@ -461,7 +461,6 @@ function resetProductForm() {
   document.getElementById('p-size').value = '';
   document.getElementById('p-stitching').value = '';
   document.getElementById('p-decoration').value = 'NA';
-  document.getElementById('p-color').value = '';
   document.getElementById('p-price').value = '0';
   document.getElementById('p-remarks').value = '';
   document.getElementById('p-generated-name').textContent = '\u2014';
@@ -485,7 +484,6 @@ document.getElementById('p-save').addEventListener('click', async () => {
     size: document.getElementById('p-size').value.trim(),
     stitching_pattern: document.getElementById('p-stitching').value.trim(),
     decoration: document.getElementById('p-decoration').value,
-    color: document.getElementById('p-color').value.trim(),
     unit_price: Number(document.getElementById('p-price').value) || 0,
     remarks: document.getElementById('p-remarks').value.trim()
   };
@@ -530,7 +528,6 @@ async function loadProducts() {
       <td>${p.size || '-'}</td>
       <td>${p.stitching_pattern || '-'}</td>
       <td>${p.decoration || '-'}</td>
-      <td>${p.color || '-'}</td>
       <td>\u20b9${p.unit_price}</td>
       <td>${p.remarks || '-'}</td>
       <td>
@@ -538,7 +535,7 @@ async function loadProducts() {
         <button class="link-btn danger" onclick="deleteProduct(${p.id})">Delete</button>
       </td>
     </tr>
-  `).join('') || '<tr><td colspan="10" class="subtle">No products yet. Add your first product above.</td></tr>';
+  `).join('') || '<tr><td colspan="9" class="subtle">No products yet. Add your first product above.</td></tr>';
 }
 
 async function editProduct(id) {
@@ -553,7 +550,6 @@ async function editProduct(id) {
   document.getElementById('p-size').value = p.size || '';
   document.getElementById('p-stitching').value = p.stitching_pattern || '';
   document.getElementById('p-decoration').value = p.decoration || 'NA';
-  document.getElementById('p-color').value = p.color || '';
   document.getElementById('p-price').value = p.unit_price || 0;
   document.getElementById('p-remarks').value = p.remarks || '';
   document.getElementById('product-modal-title').textContent = 'Edit product';
@@ -593,7 +589,7 @@ async function loadPickerResults(search) {
   container.innerHTML = products.map(p => `
     <div class="picker-row" onclick="pickProduct(${p.id})">
       <div class="picker-name" style="font-family:var(--mono);color:var(--navy)">${p.item_name}</div>
-      <div class="picker-meta">${p.product_category} \u00b7 ${p.size ? 'Size: ' + p.size + ' \u00b7 ' : ''}${p.color ? 'Color: ' + p.color + ' \u00b7 ' : ''}${p.unit_price ? '\u20b9' + p.unit_price : ''}</div>
+      <div class="picker-meta">${p.product_category} \u00b7 ${p.size ? 'Size: ' + p.size + ' \u00b7 ' : ''}${p.unit_price ? '\u20b9' + p.unit_price : ''}</div>
     </div>
   `).join('');
 }
@@ -602,7 +598,7 @@ async function pickProduct(id) {
   const products = await fetch('/api/products').then(r => r.json());
   const p = products.find(x => x.id === id);
   if (!p) return;
-  addItemRow({ itemName: p.item_name, category: p.product_category, size: p.size || '', color: p.color || '', quantity: 1, unit_price: p.unit_price || 0 });
+  addItemRow({ itemName: p.item_name, category: p.product_category, size: p.size || '', color: '', quantity: 1, unit_price: p.unit_price || 0 });
   pickerModal.classList.remove('open');
 }
 
