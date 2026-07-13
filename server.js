@@ -493,6 +493,36 @@ app.get('/api/stats', requireAuth, (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// ITEM ABBREVIATIONS API
+// ---------------------------------------------------------------------------
+app.get('/api/abbreviations', requireAuth, (req, res) => {
+  res.json(db.prepare('SELECT * FROM item_abbreviations ORDER BY item_type').all());
+});
+
+app.post('/api/abbreviations', requireAdmin, (req, res) => {
+  const { item_type, abbreviation } = req.body;
+  if (!item_type || !abbreviation) return res.status(400).json({ error: 'Both fields required' });
+  try {
+    db.prepare('INSERT INTO item_abbreviations (item_type, abbreviation) VALUES (?, ?)').run(item_type.trim(), abbreviation.trim().toUpperCase());
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: 'That item type already exists' });
+  }
+});
+
+app.put('/api/abbreviations/:id', requireAdmin, (req, res) => {
+  const { item_type, abbreviation } = req.body;
+  db.prepare('UPDATE item_abbreviations SET item_type = ?, abbreviation = ? WHERE id = ?')
+    .run(item_type.trim(), abbreviation.trim().toUpperCase(), req.params.id);
+  res.json({ success: true });
+});
+
+app.delete('/api/abbreviations/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM item_abbreviations WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// ---------------------------------------------------------------------------
 // PRODUCT MASTER API
 // ---------------------------------------------------------------------------
 app.get('/api/products', requireAuth, (req, res) => {
