@@ -92,6 +92,12 @@ CREATE TABLE IF NOT EXISTS item_abbreviations (
   item_type TEXT UNIQUE NOT NULL,   -- e.g. "Half Shirt"
   abbreviation TEXT NOT NULL        -- e.g. "HS"
 );
+
+CREATE TABLE IF NOT EXISTS stitching_patterns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pattern_name TEXT UNIQUE NOT NULL,  -- e.g. "Mixmatch"
+  abbreviation TEXT NOT NULL          -- e.g. "MM"
+);
 `);
 
 // Migration: add columns if this database was created before they existed
@@ -119,6 +125,18 @@ if (abbrevCount === 0) {
   ];
   const ins = db.prepare('INSERT OR IGNORE INTO item_abbreviations (item_type, abbreviation) VALUES (?, ?)');
   for (const [type, abbr] of defaults) ins.run(type, abbr);
+}
+
+// Seed default stitching patterns if table is empty
+const patternCount = db.prepare('SELECT COUNT(*) c FROM stitching_patterns').get().c;
+if (patternCount === 0) {
+  const patterns = [
+    ['Mixmatch', 'MM'], ['Regular Fit', 'RF'], ['Slim Fit', 'SF'],
+    ['Loose Fit', 'LF'], ['Pleated', 'PL'], ['Elastic Waist', 'EW'],
+    ['Box Pleat', 'BP'], ['Knife Pleat', 'KP']
+  ];
+  const insP = db.prepare('INSERT OR IGNORE INTO stitching_patterns (pattern_name, abbreviation) VALUES (?, ?)');
+  for (const [name, abbr] of patterns) insP.run(name, abbr);
 }
 
 module.exports = db;
