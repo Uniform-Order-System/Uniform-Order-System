@@ -493,6 +493,58 @@ app.get('/api/stats', requireAuth, (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// PRODUCT MASTER API
+// ---------------------------------------------------------------------------
+app.get('/api/products', requireAuth, (req, res) => {
+  const { category, search } = req.query;
+  let query = 'SELECT * FROM products WHERE active = 1';
+  const params = [];
+  if (category) { query += ' AND product_category = ?'; params.push(category); }
+  if (search) { query += ' AND (item_name LIKE ? OR fabric_code LIKE ? OR stitching_pattern LIKE ?)'; params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
+  query += ' ORDER BY product_category, item_name';
+  res.json(db.prepare(query).all(...params));
+});
+
+app.get('/api/products/categories', requireAuth, (req, res) => {
+  const rows = db.prepare('SELECT DISTINCT product_category FROM products WHERE active = 1 ORDER BY product_category').all();
+  res.json(rows.map(r => r.product_category));
+});
+
+app.post('/api/products', requireAdmin, (req, res) => {
+  const { product_category, item_name, fabric_code, size, stitching_pattern, decoration, color, unit_price, remarks } = req.body;
+  if (!product_category || !item_name) return res.status(400).json({ error: 'Product category and item name are required' });
+  const result = db.prepare(`
+    INSERT INTO products (product_category, item_name, fabric_code, size, stitching_pattern, decoration, color, unit_price, remarks)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(product_category, item_name, fabric_code || null, size || null, stitching_pattern || null, decoration || null, color || null, unit_price || 0, remarks || null);
+  res.json({ id: result.lastInsertRowid });
+});
+
+app.put('/api/products/:id', requireAdmin, (req, res) => {
+  const { product_category, item_name, fabric_code, size, stitching_pattern, decoration, color, unit_price, remarks } = req.body;
+  db.prepare(`
+    UPDATE products SET
+      product_category = COALESCE(?, product_category),
+      item_name = COALESCE(?, item_name),
+      fabric_code = ?,
+      size = ?,
+      stitching_pattern = ?,
+      decoration = ?,
+      color = ?,
+      unit_price = COALESCE(?, unit_price),
+      remarks = ?
+    WHERE id = ?
+  `).run(product_category, item_name, fabric_code || null, size || null, stitching_pattern || null, decoration || null, color || null, unit_price, remarks || null, req.params.id);
+  res.json({ success: true });
+});
+
+app.delete('/api/products/:id', requireAdmin, (req, res) => {
+  // Soft delete — keeps history intact
+  db.prepare('UPDATE products SET active = 0 WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// ---------------------------------------------------------------------------
 // REPORTS API
 // ---------------------------------------------------------------------------
 app.get('/api/reports', requireAdmin, (req, res) => {
