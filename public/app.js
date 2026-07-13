@@ -361,13 +361,102 @@ async function loadReport(from, to) {
 // ---------- Product Master ----------
 const productModal = document.getElementById('product-modal-backdrop');
 const pickerModal = document.getElementById('product-picker-backdrop');
+const abbrevModal = document.getElementById('abbrev-modal-backdrop');
 let productCategoryFilter = '';
-let pickerTargetRowId = null;
+let abbreviationsCache = [];
+
+// ---- Abbreviation helpers ----
+function autoAbbreviate(text) {
+  if (!text) return '';
+  return text.trim().split(/\s+/).map(w => w[0].toUpperCase()).join('');
+}
+
+const DECORATION_MAP = { 'Print': 'P', 'Embroidery': 'E', 'Batch': 'B', 'NA': 'NA' };
+
+function generateItemName() {
+  const itemType = document.getElementById('p-item-type').value;
+  const fabricCode = document.getElementById('p-fabric-code').value.trim();
+  const size = document.getElementById('p-size').value.trim();
+  const stitching = document.getElementById('p-stitching').value.trim();
+  const decoration = document.getElementById('p-decoration').value;
+  const abbrevEntry = abbreviationsCache.find(a => a.item_type === itemType);
+  const itemAbbr = abbrevEntry ? abbrevEntry.abbreviation : (itemType ? autoAbbreviate(itemType) : '');
+  const stitchAbbr = stitching ? autoAbbreviate(stitching) : '';
+  const decoAbbr = DECORATION_MAP[decoration] || decoration;
+  const parts = [itemAbbr, fabricCode, stitchAbbr, decoAbbr, size].filter(Boolean);
+  const generated = parts.join('-');
+  document.getElementById('p-generated-name').textContent = generated || '\u2014';
+  return generated;
+}
+
+['p-item-type','p-fabric-code','p-size','p-stitching','p-decoration'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('change', generateItemName);
+  el.addEventListener('input', generateItemName);
+});
+
+async function loadAbbreviations() {
+  abbreviationsCache = await fetch('/api/abbreviations').then(r => r.json()).catch(() => []);
+  const sel = document.getElementById('p-item-type');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">\u2014 Select item type \u2014</option>' +
+    abbreviationsCache.map(a => `<option value="${a.item_type}" ${a.item_type === current ? 'selected' : ''}>${a.item_type} (${a.abbreviation})</option>`).join('');
+  const tbody = document.querySelector('#abbrev-table tbody');
+  if (tbody) {
+    tbody.innerHTML = abbreviationsCache.map(a => `
+      <tr>
+        <td>${a.item_type}</td>
+        <td><strong style="font-family:var(--mono)">${a.abbreviation}</strong></td>
+        <td>
+          <button class="link-btn" onclick="editAbbrev(${a.id}, '${a.item_type.replace(/'/g,"\\'")}', '${a.abbreviation}')">Edit</button>
+          <button class="link-btn danger" onclick="deleteAbbrev(${a.id})">Delete</button>
+        </td>
+      </tr>
+    `).join('') || '<tr><td colspan="3" class="subtle">No abbreviations yet.</td></tr>';
+  }
+}
+
+document.getElementById('btn-add-abbrev').addEventListener('click', () => {
+  document.getElementById('ab-id').value = '';
+  document.getElementById('ab-type').value = '';
+  document.getElementById('ab-abbr').value = '';
+  document.getElementById('abbrev-modal-title').textContent = 'Add item abbreviation';
+  abbrevModal.classList.add('open');
+});
+document.getElementById('ab-cancel').addEventListener('click', () => abbrevModal.classList.remove('open'));
+document.getElementById('ab-save').addEventListener('click', async () => {
+  const id = document.getElementById('ab-id').value;
+  const item_type = document.getElementById('ab-type').value.trim();
+  const abbreviation = document.getElementById('ab-abbr').value.trim().toUpperCase();
+  if (!item_type || !abbreviation) return alert('Both fields are required.');
+  const url = id ? `/api/abbreviations/${id}` : '/api/abbreviations';
+  const method = id ? 'PUT' : 'POST';
+  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_type, abbreviation }) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return alert(data.error || 'Could not save.');
+  abbrevModal.classList.remove('open');
+  await loadAbbreviations();
+  generateItemName();
+});
+
+function editAbbrev(id, type, abbr) {
+  document.getElementById('ab-id').value = id;
+  document.getElementById('ab-type').value = type;
+  document.getElementById('ab-abbr').value = abbr;
+  document.getElementById('abbrev-modal-title').textContent = 'Edit abbreviation';
+  abbrevModal.classList.add('open');
+}
+
+async function deleteAbbrev(id) {
+  if (!confirm('Remove this abbreviation?')) return;
+  await fetch(`/api/abbreviations/${id}`, { method: 'DELETE' });
+  await loadAbbreviations();
+}
 
 function resetProductForm() {
   document.getElementById('p-id').value = '';
   document.getElementById('p-category').value = '';
-  document.getElementById('p-item-name').value = '';
+  document.getElementById('p-item-type').value = '';
   document.getElementById('p-fabric-code').value = '';
   document.getElementById('p-size').value = '';
   document.getElementById('p-stitching').value = '';
@@ -375,6 +464,7 @@ function resetProductForm() {
   document.getElementById('p-color').value = '';
   document.getElementById('p-price').value = '0';
   document.getElementById('p-remarks').value = '';
+  document.getElementById('p-generated-name').textContent = '\u2014';
   document.getElementById('product-modal-title').textContent = 'Add product';
 }
 
@@ -386,9 +476,11 @@ document.getElementById('p-cancel').addEventListener('click', () => productModal
 
 document.getElementById('p-save').addEventListener('click', async () => {
   const id = document.getElementById('p-id').value;
+  const itemName = generateItemName();
+  if (!itemName || itemName === '\u2014') return alert('Please select an item type and fill in fabric code to generate a name.');
   const body = {
     product_category: document.getElementById('p-category').value.trim(),
-    item_name: document.getElementById('p-item-name').value.trim(),
+    item_name: itemName,
     fabric_code: document.getElementById('p-fabric-code').value.trim(),
     size: document.getElementById('p-size').value.trim(),
     stitching_pattern: document.getElementById('p-stitching').value.trim(),
@@ -397,8 +489,7 @@ document.getElementById('p-save').addEventListener('click', async () => {
     unit_price: Number(document.getElementById('p-price').value) || 0,
     remarks: document.getElementById('p-remarks').value.trim()
   };
-  if (!body.product_category || !body.item_name) return alert('Product category and item name are required.');
-
+  if (!body.product_category) return alert('Product category is required.');
   const url = id ? `/api/products/${id}` : '/api/products';
   const method = id ? 'PUT' : 'POST';
   const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -433,14 +524,14 @@ async function loadProducts() {
   const tbody = document.querySelector('#products-table tbody');
   tbody.innerHTML = products.map(p => `
     <tr>
+      <td><strong style="font-family:var(--mono);color:var(--navy)">${p.item_name}</strong></td>
       <td>${p.product_category}</td>
-      <td><strong>${p.item_name}</strong></td>
       <td>${p.fabric_code || '-'}</td>
       <td>${p.size || '-'}</td>
       <td>${p.stitching_pattern || '-'}</td>
       <td>${p.decoration || '-'}</td>
       <td>${p.color || '-'}</td>
-      <td>₹${p.unit_price}</td>
+      <td>\u20b9${p.unit_price}</td>
       <td>${p.remarks || '-'}</td>
       <td>
         <button class="link-btn" onclick="editProduct(${p.id})">Edit</button>
@@ -456,7 +547,8 @@ async function editProduct(id) {
   if (!p) return;
   document.getElementById('p-id').value = p.id;
   document.getElementById('p-category').value = p.product_category;
-  document.getElementById('p-item-name').value = p.item_name;
+  const matchedAbbrev = abbreviationsCache.find(a => p.item_name.startsWith(a.abbreviation + '-'));
+  document.getElementById('p-item-type').value = matchedAbbrev ? matchedAbbrev.item_type : '';
   document.getElementById('p-fabric-code').value = p.fabric_code || '';
   document.getElementById('p-size').value = p.size || '';
   document.getElementById('p-stitching').value = p.stitching_pattern || '';
@@ -465,6 +557,7 @@ async function editProduct(id) {
   document.getElementById('p-price').value = p.unit_price || 0;
   document.getElementById('p-remarks').value = p.remarks || '';
   document.getElementById('product-modal-title').textContent = 'Edit product';
+  generateItemName();
   productModal.classList.add('open');
 }
 
@@ -499,15 +592,8 @@ async function loadPickerResults(search) {
   }
   container.innerHTML = products.map(p => `
     <div class="picker-row" onclick="pickProduct(${p.id})">
-      <div class="picker-name">${p.item_name} — ${p.product_category}</div>
-      <div class="picker-meta">
-        ${p.fabric_code ? 'Fabric: ' + p.fabric_code + ' · ' : ''}
-        ${p.size ? 'Size: ' + p.size + ' · ' : ''}
-        ${p.color ? 'Color: ' + p.color + ' · ' : ''}
-        ${p.stitching_pattern ? 'Pattern: ' + p.stitching_pattern + ' · ' : ''}
-        ${p.decoration && p.decoration !== 'NA' ? 'Decoration: ' + p.decoration + ' · ' : ''}
-        ${p.unit_price ? '₹' + p.unit_price : ''}
-      </div>
+      <div class="picker-name" style="font-family:var(--mono);color:var(--navy)">${p.item_name}</div>
+      <div class="picker-meta">${p.product_category} \u00b7 ${p.size ? 'Size: ' + p.size + ' \u00b7 ' : ''}${p.color ? 'Color: ' + p.color + ' \u00b7 ' : ''}${p.unit_price ? '\u20b9' + p.unit_price : ''}</div>
     </div>
   `).join('');
 }
@@ -516,15 +602,7 @@ async function pickProduct(id) {
   const products = await fetch('/api/products').then(r => r.json());
   const p = products.find(x => x.id === id);
   if (!p) return;
-  // Add a new item row pre-filled with product details
-  addItemRow({
-    itemName: p.item_name,
-    category: p.product_category,
-    size: p.size || '',
-    color: p.color || '',
-    quantity: 1,
-    unit_price: p.unit_price || 0
-  });
+  addItemRow({ itemName: p.item_name, category: p.product_category, size: p.size || '', color: p.color || '', quantity: 1, unit_price: p.unit_price || 0 });
   pickerModal.classList.remove('open');
 }
 
@@ -602,6 +680,7 @@ loadOrders();
 loadInventory();
 loadInvoices();
 loadUsers();
+loadAbbreviations();
 loadProducts();
 loadProductCategories();
 setInterval(() => { loadOrders(); loadStats(); }, 15000); // poll for new WhatsApp orders
