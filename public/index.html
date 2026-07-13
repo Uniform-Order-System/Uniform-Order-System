@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Uniform Order Desk</title>
 <link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2A4A">
 </head>
 <body>
 
@@ -23,8 +25,13 @@
       <button class="nav-item" data-tab="billing">Billing</button>
       <button class="nav-item" data-tab="reports">Reports</button>
       <button class="nav-item" data-tab="setup">WhatsApp Setup</button>
+      <button class="nav-item" data-tab="users" id="nav-users">Users</button>
     </nav>
     <div class="stats" id="stats"></div>
+    <div class="account-box">
+      <div class="account-name" id="account-name"></div>
+      <button class="link-btn" id="btn-logout" style="color:rgba(245,243,238,0.75)">Log out</button>
+    </div>
   </aside>
 
   <main class="main">
@@ -151,6 +158,25 @@
       </div>
     </section>
 
+    <!-- USERS TAB (admin only) -->
+    <section class="tab-panel" id="tab-users">
+      <div class="panel-head">
+        <div>
+          <h1>Users</h1>
+          <p class="subtle">Staff who can log into this dashboard, and what they can access.</p>
+        </div>
+        <button class="btn-primary" id="btn-add-user">+ Add user</button>
+      </div>
+      <table class="data-table" id="users-table">
+        <thead><tr><th>Username</th><th>Role</th><th>Added</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="subtle" style="margin-top:16px;">
+        <strong>Staff</strong> can view and update orders and inventory levels.
+        <strong>Admin</strong> can additionally access Billing, Reports, and manage users.
+      </p>
+    </section>
+
   </main>
 </div>
 
@@ -218,6 +244,25 @@
     <div class="modal-actions">
       <button class="btn-ghost" id="i-cancel">Cancel</button>
       <button class="btn-primary" id="i-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="user-modal-backdrop">
+  <div class="modal">
+    <h2>Add user</h2>
+    <label>Username</label>
+    <input id="u-username" placeholder="e.g. rahul">
+    <label>Password</label>
+    <input id="u-password" type="password" placeholder="At least 6 characters">
+    <label>Role</label>
+    <select id="u-role" class="status-select" style="width:100%; padding:9px 10px;">
+      <option value="staff">Staff</option>
+      <option value="admin">Admin</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="u-cancel">Cancel</button>
+      <button class="btn-primary" id="u-save">Save</button>
     </div>
   </div>
 </div>

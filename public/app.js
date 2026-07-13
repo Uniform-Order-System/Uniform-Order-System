@@ -1,4 +1,29 @@
-const state = { statusFilter: 'all' };
+const state = { statusFilter: 'all', currentUser: null };
+
+// Redirect to login automatically if any API call comes back unauthenticated
+const _origFetch = window.fetch;
+window.fetch = async (...args) => {
+  const res = await _origFetch(...args);
+  if (res.status === 401 && !args[0].includes('/api/login')) {
+    window.location.href = '/login.html';
+  }
+  return res;
+};
+
+async function initAuth() {
+  const me = await fetch('/api/me').then(r => r.ok ? r.json() : null);
+  if (!me) return; // fetch wrapper above already redirects on 401
+  state.currentUser = me;
+  document.getElementById('account-name').textContent = `${me.username} (${me.role})`;
+  if (me.role !== 'admin') {
+    document.querySelectorAll('[data-tab="billing"], [data-tab="reports"], #nav-users').forEach(el => el.style.display = 'none');
+  }
+}
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/login.html';
+});
 
 // ---------- Tab switching ----------
 document.querySelectorAll('.nav-item').forEach(btn => {
@@ -333,9 +358,78 @@ async function loadReport(from, to) {
 // Default report view: this month
 (() => { const { from, to } = getRange('this_month'); document.getElementById('r-from').value = from; document.getElementById('r-to').value = to; loadReport(from, to); })();
 
+// ---------- Users (admin only) ----------
+const userModal = document.getElementById('user-modal-backdrop');
+document.getElementById('btn-add-user').addEventListener('click', () => {
+  document.getElementById('u-username').value = '';
+  document.getElementById('u-password').value = '';
+  document.getElementById('u-role').value = 'staff';
+  userModal.classList.add('open');
+});
+document.getElementById('u-cancel').addEventListener('click', () => userModal.classList.remove('open'));
+
+document.getElementById('u-save').addEventListener('click', async () => {
+  const username = document.getElementById('u-username').value.trim();
+  const password = document.getElementById('u-password').value;
+  const role = document.getElementById('u-role').value;
+  if (!username || !password) return alert('Username and password are required.');
+  const res = await fetch('/api/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, role })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return alert(data.error || 'Could not create user.');
+  userModal.classList.remove('open');
+  loadUsers();
+});
+
+async function loadUsers() {
+  const res = await fetch('/api/users');
+  if (!res.ok) return; // not an admin, or not yet authenticated
+  const users = await res.json();
+  document.querySelector('#users-table tbody').innerHTML = users.map(u => `
+    <tr>
+      <td>${u.username}</td>
+      <td>${u.role}</td>
+      <td>${new Date(u.created_at).toLocaleDateString()}</td>
+      <td>
+        <button class="link-btn" onclick="resetPassword(${u.id})">Reset password</button>
+        <button class="link-btn danger" onclick="deleteUser(${u.id})">Delete</button>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="4" class="subtle">No users yet.</td></tr>';
+}
+
+async function resetPassword(id) {
+  const password = prompt('Enter a new password (at least 6 characters):');
+  if (!password) return;
+  const res = await fetch(`/api/users/${id}/password`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return alert(data.error || 'Could not reset password.');
+  alert('Password updated.');
+}
+
+async function deleteUser(id) {
+  if (!confirm('Remove this user? They will no longer be able to log in.')) return;
+  const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return alert(data.error || 'Could not delete user.');
+  loadUsers();
+}
+
 // ---------- Init ----------
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+initAuth();
 loadStats();
 loadOrders();
 loadInventory();
 loadInvoices();
+loadUsers();
 setInterval(() => { loadOrders(); loadStats(); }, 15000); // poll for new WhatsApp orders

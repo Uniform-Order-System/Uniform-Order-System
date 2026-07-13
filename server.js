@@ -53,6 +53,7 @@ app.post('/webhook', async (req, res) => {
     const fromPhone = message.from; // customer's WhatsApp number
     const contactName = value.contacts?.[0]?.profile?.name || null;
     const text = message.text?.body || '';
+    console.log(`Message from ${fromPhone} (${contactName}): "${text}"`);
 
     if (text) {
       const orderId = saveIncomingOrder(text, fromPhone, contactName);
@@ -60,14 +61,6 @@ app.post('/webhook', async (req, res) => {
       // Auto-reply confirming receipt (optional but recommended so customer knows it went through)
       await sendWhatsAppReply(fromPhone,
         `Thanks! We've received your order and will confirm shortly. ✅`);
-    } else if (message.type === 'image') {
-      const caption = message.image?.caption || '';
-      const orderId = await saveIncomingImageOrder(message.image.id, caption, fromPhone, contactName);
-      console.log(`Saved image order #${orderId}`);
-      await sendWhatsAppReply(fromPhone,
-        `Thanks! We've received your order photo and will review it shortly. ✅`);
-    } else {
-      console.log(`Unhandled message type: ${message.type} - ignoring.`);
     }
 
     return res.sendStatus(200);
@@ -94,98 +87,35 @@ async function sendWhatsAppReply(toPhone, bodyText) {
   }
 }
 
-async function saveIncomingImageOrder(mediaId, caption, phone, contactName) {
-  let imageData = null;
-  let imageMime = null;
-
-  if (WHATSAPP_TOKEN) {
-    try {
-      // Step 1: get the temporary media URL from Meta
-      const mediaInfo = await axios.get(
-        `https://graph.facebook.com/v20.0/${mediaId}`,
-        { headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}` } }
-      );
-      // Step 2: download the actual image bytes from that URL
-      const mediaFile = await axios.get(mediaInfo.data.url, {
-        headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}` },
-        responseType: 'arraybuffer'
-      });
-      imageData = Buffer.from(mediaFile.data).toString('base64');
-      imageMime = mediaInfo.data.mime_type || 'image/jpeg';
-    } catch (err) {
-      console.error('Failed to download WhatsApp image:', err.response?.data || err.message);
-    }
-  }
-
-  const insertOrder = db.prepare(`
-    INSERT INTO orders (order_number, order_date, customer_name, customer_phone, raw_message, source, needs_review, image_data, image_mime)
-    VALUES (?, ?, ?, ?, ?, 'whatsapp', 1, ?, ?)
-  `);
-  const result = insertOrder.run(
-    generateOrderNumber(), new Date().toISOString().slice(0, 10), contactName, phone,
-    caption ? `[Order sent as photo] ${caption}` : '[Order sent as photo - see image]',
-    imageData, imageMime
-  );
-  return result.lastInsertRowid;
-}
-
-function generateOrderNumber() {
-  const year = new Date().getFullYear();
-  const countThisYear = db.prepare(`
-    SELECT COUNT(*) c FROM orders WHERE order_number LIKE ?
-  `).get(`ORD-${year}-%`).c;
-  const next = String(countThisYear + 1).padStart(4, '0');
-  return `ORD-${year}-${next}`;
-}
-
 function saveIncomingOrder(rawText, phone, contactName) {
   const parsed = parseOrderMessage(rawText, phone);
   const customerName = parsed.customer_name || contactName || null;
-  const today = new Date().toISOString().slice(0, 10);
 
   const insertOrder = db.prepare(`
-    INSERT INTO orders (order_number, order_date, customer_name, customer_phone, school_name, raw_message, delivery_date, source, needs_review)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'whatsapp', ?)
+    INSERT INTO orders (customer_name, customer_phone, school_name, raw_message, delivery_date, source, needs_review)
+    VALUES (?, ?, ?, ?, ?, 'whatsapp', ?)
   `);
   const result = insertOrder.run(
-    generateOrderNumber(), today, customerName, phone, parsed.school_name, rawText, parsed.delivery_date, parsed.needs_review
+    customerName, phone, parsed.school_name, rawText, parsed.delivery_date, parsed.needs_review
   );
 
   const orderId = result.lastInsertRowid;
   const insertItem = db.prepare(`
-    INSERT INTO order_items (order_id, item_type, size, quantity, color) VALUES (?, ?, ?, ?, ?)
+    INSERT INTO order_items (order_id, item_type, size, quantity) VALUES (?, ?, ?, ?)
   `);
   for (const item of parsed.items) {
-    insertItem.run(orderId, item.item_type, item.size, item.quantity, item.color || null);
+    insertItem.run(orderId, item.item_type, item.size, item.quantity);
   }
   return orderId;
 }
 
 // ---------------------------------------------------------------------------
-// MANUAL ORDER ENTRY - structured form (Party Name, Order Date, Mobile, School, SPOC, Items, Remarks)
+// MANUAL ORDER ENTRY (paste a WhatsApp message manually, or key in by hand)
 // ---------------------------------------------------------------------------
 app.post('/api/orders/manual', (req, res) => {
-  const { partyName, mobileNumber, schoolName, spoc, orderDate, remarks, deliveryDate, items } = req.body;
-  if (!partyName) return res.status(400).json({ error: 'Party name is required' });
-  if (!items || items.length === 0) return res.status(400).json({ error: 'At least one item is required' });
-
-  const insertOrder = db.prepare(`
-    INSERT INTO orders (order_number, order_date, customer_name, customer_phone, school_name, spoc, notes, delivery_date, source, needs_review)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual', 0)
-  `);
-  const result = insertOrder.run(
-    generateOrderNumber(),
-    orderDate || new Date().toISOString().slice(0, 10),
-    partyName, mobileNumber || null, schoolName || null, spoc || null, remarks || null, deliveryDate || null
-  );
-
-  const orderId = result.lastInsertRowid;
-  const insertItem = db.prepare(`
-    INSERT INTO order_items (order_id, item_type, category, size, color, quantity) VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  for (const item of items) {
-    insertItem.run(orderId, item.itemName, item.category || null, item.size || null, item.color || null, item.quantity || 1);
-  }
+  const { rawText, phone, contactName } = req.body;
+  if (!rawText) return res.status(400).json({ error: 'rawText is required' });
+  const orderId = saveIncomingOrder(rawText, phone || 'N/A', contactName);
   res.json({ orderId });
 });
 
@@ -194,25 +124,15 @@ app.post('/api/orders/manual', (req, res) => {
 // ---------------------------------------------------------------------------
 app.get('/api/orders', (req, res) => {
   const { status } = req.query;
-  const cols = 'id, order_number, order_date, customer_name, customer_phone, school_name, spoc, raw_message, status, delivery_date, notes, source, needs_review, image_mime, created_at, updated_at, (image_data IS NOT NULL) as has_image';
   let orders;
   if (status && status !== 'all') {
-    orders = db.prepare(`SELECT ${cols} FROM orders WHERE status = ? ORDER BY created_at DESC`).all(status);
+    orders = db.prepare('SELECT * FROM orders WHERE status = ? ORDER BY created_at DESC').all(status);
   } else {
-    orders = db.prepare(`SELECT ${cols} FROM orders ORDER BY created_at DESC`).all();
+    orders = db.prepare('SELECT * FROM orders ORDER BY created_at DESC').all();
   }
   const itemsStmt = db.prepare('SELECT * FROM order_items WHERE order_id = ?');
   const withItems = orders.map(o => ({ ...o, items: itemsStmt.all(o.id) }));
   res.json(withItems);
-});
-
-// Serve just the image for a given order (kept separate from /api/orders so the
-// orders list stays light - images can be a few hundred KB each)
-app.get('/api/orders/:id/image', (req, res) => {
-  const row = db.prepare('SELECT image_data, image_mime FROM orders WHERE id = ?').get(req.params.id);
-  if (!row || !row.image_data) return res.status(404).send('No image for this order');
-  res.setHeader('Content-Type', row.image_mime || 'image/jpeg');
-  res.send(Buffer.from(row.image_data, 'base64'));
 });
 
 app.get('/api/orders/:id', (req, res) => {
@@ -223,31 +143,29 @@ app.get('/api/orders/:id', (req, res) => {
 });
 
 app.put('/api/orders/:id', (req, res) => {
-  const { status, customer_name, school_name, spoc, delivery_date, order_date, notes } = req.body;
+  const { status, customer_name, school_name, delivery_date, notes } = req.body;
   db.prepare(`
     UPDATE orders SET
       status = COALESCE(?, status),
       customer_name = COALESCE(?, customer_name),
       school_name = COALESCE(?, school_name),
-      spoc = COALESCE(?, spoc),
       delivery_date = COALESCE(?, delivery_date),
-      order_date = COALESCE(?, order_date),
       notes = COALESCE(?, notes),
       needs_review = 0,
       updated_at = datetime('now')
     WHERE id = ?
-  `).run(status, customer_name, school_name, spoc, delivery_date, order_date, notes, req.params.id);
+  `).run(status, customer_name, school_name, delivery_date, notes, req.params.id);
   res.json({ success: true });
 });
 
 app.put('/api/orders/:id/items', (req, res) => {
   const { items } = req.body; // full replacement list
   const del = db.prepare('DELETE FROM order_items WHERE order_id = ?');
-  const ins = db.prepare('INSERT INTO order_items (order_id, item_type, category, size, color, quantity, unit_price) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  const ins = db.prepare('INSERT INTO order_items (order_id, item_type, size, quantity, unit_price) VALUES (?, ?, ?, ?, ?)');
   const tx = db.transaction((items) => {
     del.run(req.params.id);
     for (const it of items) {
-      ins.run(req.params.id, it.item_type, it.category || null, it.size, it.color || null, it.quantity, it.unit_price || 0);
+      ins.run(req.params.id, it.item_type, it.size, it.quantity, it.unit_price || 0);
     }
   });
   tx(items);

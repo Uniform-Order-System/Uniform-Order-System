@@ -79,6 +79,61 @@ keeps working for WhatsApp going forward).
 
 ---
 
+## 2b. Deploying to Render (so Meta can reach your webhook)
+
+**Cost note first:** Render's free web service works for testing, but its disk
+is wiped every time the service restarts or redeploys — meaning your orders
+would vanish. For real use, go with the **Starter plan ($7/month) + a 1GB
+persistent disk (~$0.25/month)**, about $7.25/month total, no data loss, no
+downtime. Steps below cover both; skip the disk step if you're just testing.
+
+**Step 1 — Get the code onto GitHub**
+1. Go to github.com → New repository → name it e.g. `uniform-order-system` → Create.
+2. On the new repo's page, click **"uploading an existing file"** and drag in
+   every file/folder from the zip you downloaded (except `node_modules` and
+   `.env`, which shouldn't be uploaded). Commit.
+
+   *(If you're comfortable with git instead: `git init`, `git add .`,
+   `git commit -m "initial"`, then `git remote add origin <your-repo-url>` and
+   `git push -u origin main`.)*
+
+**Step 2 — Create the Render service**
+1. Sign up at render.com (no card needed for the free tier; you'll add one when picking Starter).
+2. Dashboard → **New +** → **Web Service** → connect your GitHub account → select the `uniform-order-system` repo.
+3. Settings:
+   - **Runtime:** Node
+   - **Build Command:** `npm install`
+   - **Start Command:** `npm start`
+   - **Instance Type:** Starter ($7/mo) recommended; Free is fine for a quick test.
+
+**Step 3 — Add a persistent disk (skip if testing on Free)**
+1. On the service, go to the **Disks** tab → **Add Disk**.
+2. Mount path: `/var/data`
+3. Size: 1 GB is plenty for years of orders.
+4. Render will redeploy automatically once saved.
+
+**Step 4 — Environment variables**
+On the service → **Environment** tab, add:
+```
+WHATSAPP_TOKEN=your_token_from_meta
+WHATSAPP_PHONE_NUMBER_ID=your_id_from_meta
+WHATSAPP_VERIFY_TOKEN=choose_any_random_string
+DB_PATH=/var/data/uniforms.db
+```
+(Leave `DB_PATH` out if you skipped the disk step — it'll just use local
+storage that resets on restart, fine for testing only.)
+
+**Step 5 — Deploy and get your URL**
+Render builds and deploys automatically. You'll get a URL like
+`https://uniform-order-system.onrender.com` — that's your dashboard AND the
+address Meta will send messages to (`https://uniform-order-system.onrender.com/webhook`).
+Use that in the Meta webhook setup from Section 2, Step D.
+
+**After this:** every time you push a code change to GitHub, Render
+redeploys automatically — you never have to manually re-upload anything.
+
+---
+
 ## 3. How order parsing works
 
 `parser.js` looks for garment keywords (shirt, trouser, pinafore, tie, etc.),
