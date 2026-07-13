@@ -358,6 +358,176 @@ async function loadReport(from, to) {
 // Default report view: this month
 (() => { const { from, to } = getRange('this_month'); document.getElementById('r-from').value = from; document.getElementById('r-to').value = to; loadReport(from, to); })();
 
+// ---------- Product Master ----------
+const productModal = document.getElementById('product-modal-backdrop');
+const pickerModal = document.getElementById('product-picker-backdrop');
+let productCategoryFilter = '';
+let pickerTargetRowId = null;
+
+function resetProductForm() {
+  document.getElementById('p-id').value = '';
+  document.getElementById('p-category').value = '';
+  document.getElementById('p-item-name').value = '';
+  document.getElementById('p-fabric-code').value = '';
+  document.getElementById('p-size').value = '';
+  document.getElementById('p-stitching').value = '';
+  document.getElementById('p-decoration').value = 'NA';
+  document.getElementById('p-color').value = '';
+  document.getElementById('p-price').value = '0';
+  document.getElementById('p-remarks').value = '';
+  document.getElementById('product-modal-title').textContent = 'Add product';
+}
+
+document.getElementById('btn-add-product').addEventListener('click', () => {
+  resetProductForm();
+  productModal.classList.add('open');
+});
+document.getElementById('p-cancel').addEventListener('click', () => productModal.classList.remove('open'));
+
+document.getElementById('p-save').addEventListener('click', async () => {
+  const id = document.getElementById('p-id').value;
+  const body = {
+    product_category: document.getElementById('p-category').value.trim(),
+    item_name: document.getElementById('p-item-name').value.trim(),
+    fabric_code: document.getElementById('p-fabric-code').value.trim(),
+    size: document.getElementById('p-size').value.trim(),
+    stitching_pattern: document.getElementById('p-stitching').value.trim(),
+    decoration: document.getElementById('p-decoration').value,
+    color: document.getElementById('p-color').value.trim(),
+    unit_price: Number(document.getElementById('p-price').value) || 0,
+    remarks: document.getElementById('p-remarks').value.trim()
+  };
+  if (!body.product_category || !body.item_name) return alert('Product category and item name are required.');
+
+  const url = id ? `/api/products/${id}` : '/api/products';
+  const method = id ? 'PUT' : 'POST';
+  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return alert(data.error || 'Could not save product.');
+  productModal.classList.remove('open');
+  loadProducts();
+  loadProductCategories();
+});
+
+async function loadProductCategories() {
+  const cats = await fetch('/api/products/categories').then(r => r.json()).catch(() => []);
+  const container = document.getElementById('product-category-filters');
+  container.innerHTML = `<button class="chip ${!productCategoryFilter ? 'active' : ''}" data-cat="">All</button>` +
+    cats.map(c => `<button class="chip ${productCategoryFilter === c ? 'active' : ''}" data-cat="${c}">${c}</button>`).join('');
+  container.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      container.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      productCategoryFilter = chip.dataset.cat;
+      loadProducts();
+    });
+  });
+}
+
+async function loadProducts() {
+  const search = document.getElementById('product-search').value.trim();
+  const params = new URLSearchParams();
+  if (productCategoryFilter) params.set('category', productCategoryFilter);
+  if (search) params.set('search', search);
+  const products = await fetch('/api/products?' + params).then(r => r.json()).catch(() => []);
+  const tbody = document.querySelector('#products-table tbody');
+  tbody.innerHTML = products.map(p => `
+    <tr>
+      <td>${p.product_category}</td>
+      <td><strong>${p.item_name}</strong></td>
+      <td>${p.fabric_code || '-'}</td>
+      <td>${p.size || '-'}</td>
+      <td>${p.stitching_pattern || '-'}</td>
+      <td>${p.decoration || '-'}</td>
+      <td>${p.color || '-'}</td>
+      <td>₹${p.unit_price}</td>
+      <td>${p.remarks || '-'}</td>
+      <td>
+        <button class="link-btn" onclick="editProduct(${p.id})">Edit</button>
+        <button class="link-btn danger" onclick="deleteProduct(${p.id})">Delete</button>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="10" class="subtle">No products yet. Add your first product above.</td></tr>';
+}
+
+async function editProduct(id) {
+  const products = await fetch('/api/products').then(r => r.json());
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('p-id').value = p.id;
+  document.getElementById('p-category').value = p.product_category;
+  document.getElementById('p-item-name').value = p.item_name;
+  document.getElementById('p-fabric-code').value = p.fabric_code || '';
+  document.getElementById('p-size').value = p.size || '';
+  document.getElementById('p-stitching').value = p.stitching_pattern || '';
+  document.getElementById('p-decoration').value = p.decoration || 'NA';
+  document.getElementById('p-color').value = p.color || '';
+  document.getElementById('p-price').value = p.unit_price || 0;
+  document.getElementById('p-remarks').value = p.remarks || '';
+  document.getElementById('product-modal-title').textContent = 'Edit product';
+  productModal.classList.add('open');
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Remove this product from the master list?')) return;
+  await fetch(`/api/products/${id}`, { method: 'DELETE' });
+  loadProducts();
+  loadProductCategories();
+}
+
+document.getElementById('product-search').addEventListener('keydown', e => { if (e.key === 'Enter') loadProducts(); });
+document.getElementById('btn-product-search').addEventListener('click', () => loadProducts());
+
+// ---------- Product Picker (in order form) ----------
+document.getElementById('m-pick-product').addEventListener('click', () => {
+  document.getElementById('picker-search').value = '';
+  loadPickerResults('');
+  pickerModal.classList.add('open');
+});
+document.getElementById('picker-cancel').addEventListener('click', () => pickerModal.classList.remove('open'));
+document.getElementById('picker-search').addEventListener('keydown', e => { if (e.key === 'Enter') loadPickerResults(e.target.value); });
+document.getElementById('btn-picker-search').addEventListener('click', () => loadPickerResults(document.getElementById('picker-search').value));
+
+async function loadPickerResults(search) {
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  const products = await fetch('/api/products?' + params).then(r => r.json()).catch(() => []);
+  const container = document.getElementById('picker-results');
+  if (products.length === 0) {
+    container.innerHTML = '<p class="subtle" style="padding:12px;">No products found. Add them in the Product Master tab first.</p>';
+    return;
+  }
+  container.innerHTML = products.map(p => `
+    <div class="picker-row" onclick="pickProduct(${p.id})">
+      <div class="picker-name">${p.item_name} — ${p.product_category}</div>
+      <div class="picker-meta">
+        ${p.fabric_code ? 'Fabric: ' + p.fabric_code + ' · ' : ''}
+        ${p.size ? 'Size: ' + p.size + ' · ' : ''}
+        ${p.color ? 'Color: ' + p.color + ' · ' : ''}
+        ${p.stitching_pattern ? 'Pattern: ' + p.stitching_pattern + ' · ' : ''}
+        ${p.decoration && p.decoration !== 'NA' ? 'Decoration: ' + p.decoration + ' · ' : ''}
+        ${p.unit_price ? '₹' + p.unit_price : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function pickProduct(id) {
+  const products = await fetch('/api/products').then(r => r.json());
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  // Add a new item row pre-filled with product details
+  addItemRow({
+    itemName: p.item_name,
+    category: p.product_category,
+    size: p.size || '',
+    color: p.color || '',
+    quantity: 1,
+    unit_price: p.unit_price || 0
+  });
+  pickerModal.classList.remove('open');
+}
+
 // ---------- Users (admin only) ----------
 const userModal = document.getElementById('user-modal-backdrop');
 document.getElementById('btn-add-user').addEventListener('click', () => {
@@ -432,4 +602,6 @@ loadOrders();
 loadInventory();
 loadInvoices();
 loadUsers();
+loadProducts();
+loadProductCategories();
 setInterval(() => { loadOrders(); loadStats(); }, 15000); // poll for new WhatsApp orders
