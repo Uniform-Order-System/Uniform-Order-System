@@ -148,6 +148,8 @@ h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.2px; }
 .data-table td { padding: 10px 14px; font-size: 13px; border-top: 1px solid var(--line); }
 .low-stock { color: var(--danger); font-weight: 600; }
 
+.generated-name-box { background: var(--navy); color: var(--brass-bright); font-family: var(--mono); font-size: 15px; font-weight: 600; padding: 10px 14px; border-radius: 6px; margin: 4px 0 14px; letter-spacing: 0.5px; min-height: 36px; }
+
 /* ---------- Product Master ---------- */
 .search-row { display: flex; gap: 8px; align-items: center; }
 .picker-row { padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
