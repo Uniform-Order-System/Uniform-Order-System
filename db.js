@@ -71,6 +71,21 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT DEFAULT 'staff',    -- admin | staff
   created_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS products (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_category TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  fabric_code TEXT,
+  size TEXT,
+  stitching_pattern TEXT,
+  decoration TEXT,        -- Print | Embroidery | Batch | NA
+  color TEXT,
+  unit_price REAL DEFAULT 0,
+  remarks TEXT,
+  active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now'))
+);
 `);
 
 // Migration: add columns if this database was created before they existed
