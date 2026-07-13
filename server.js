@@ -523,6 +523,36 @@ app.delete('/api/abbreviations/:id', requireAdmin, (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// STITCHING PATTERNS API
+// ---------------------------------------------------------------------------
+app.get('/api/patterns', requireAuth, (req, res) => {
+  res.json(db.prepare('SELECT * FROM stitching_patterns ORDER BY pattern_name').all());
+});
+
+app.post('/api/patterns', requireAdmin, (req, res) => {
+  const { pattern_name, abbreviation } = req.body;
+  if (!pattern_name || !abbreviation) return res.status(400).json({ error: 'Both fields required' });
+  try {
+    db.prepare('INSERT INTO stitching_patterns (pattern_name, abbreviation) VALUES (?, ?)').run(pattern_name.trim(), abbreviation.trim().toUpperCase());
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: 'That pattern already exists' });
+  }
+});
+
+app.put('/api/patterns/:id', requireAdmin, (req, res) => {
+  const { pattern_name, abbreviation } = req.body;
+  db.prepare('UPDATE stitching_patterns SET pattern_name = ?, abbreviation = ? WHERE id = ?')
+    .run(pattern_name.trim(), abbreviation.trim().toUpperCase(), req.params.id);
+  res.json({ success: true });
+});
+
+app.delete('/api/patterns/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM stitching_patterns WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// ---------------------------------------------------------------------------
 // PRODUCT MASTER API
 // ---------------------------------------------------------------------------
 app.get('/api/products', requireAuth, (req, res) => {
